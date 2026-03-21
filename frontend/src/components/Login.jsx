@@ -13,7 +13,8 @@ function Login({ onLogin }) {
     setLoading(true)
 
     try {
-      const response = await axios.post('/api/auth/login', {
+      const apiUrl = import.meta.env.VITE_API_URL || '';
+      const response = await axios.post(`${apiUrl}/api/auth/login`, {
         username,
         password
       })

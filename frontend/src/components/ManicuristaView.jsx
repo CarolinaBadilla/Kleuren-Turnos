@@ -5,10 +5,11 @@ function ManicuristaView({ token, userId }) {
   const [turnos, setTurnos] = useState([])
   const [loading, setLoading] = useState(true)
 
+  const apiUrl = import.meta.env.VITE_API_URL || '';
   const api = axios.create({
-    baseURL: '/api',
-    headers: { Authorization: `Bearer ${token}` }
-  })
+  baseURL: `${apiUrl}/api`,
+  headers: { Authorization: `Bearer ${token}` }
+})
 
   const cargarTurnos = async () => {
     try {
