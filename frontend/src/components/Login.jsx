@@ -32,7 +32,7 @@ function Login({ onLogin }) {
       <div className="bg-white p-8 rounded-lg shadow-md w-full max-w-md">
         <div className="flex justify-center mb-6">
         <img 
-        src="./public/kleuren-logo.png" 
+        src="./kleuren-logo.png" 
         alt="Logo" 
         className="h-10 w-auto"
       />
