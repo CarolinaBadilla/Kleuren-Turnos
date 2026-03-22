@@ -11,7 +11,8 @@ router.post('/login', async (req, res) => {
   const db = getDb();
 
   try {
-    const user = await db.get('SELECT * FROM users WHERE username = ?', [username]);
+    const result = await db.query('SELECT * FROM users WHERE username = $1', [username]);
+    const user = result.rows[0];
     
     if (!user) {
       return res.status(401).json({ error: 'Usuario o contraseña incorrectos' });
@@ -39,6 +40,7 @@ router.post('/login', async (req, res) => {
       }
     });
   } catch (error) {
+    console.error('Error en login:', error);
     res.status(500).json({ error: 'Error en el servidor' });
   }
 });

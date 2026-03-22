@@ -18,7 +18,7 @@ router.get('/', async (req, res) => {
     
     if (user.role === 'secretaria') {
       // Secretaria ve todos los turnos con datos completos
-      appointments = await db.all(`
+      appointments = await db.query(`
         SELECT a.*, u.full_name as manicurista_nombre 
         FROM appointments a
         JOIN users u ON a.manicurist_id = u.id
@@ -26,7 +26,7 @@ router.get('/', async (req, res) => {
       `);
     } else {
       // Manicurista solo ve sus turnos y campos limitados
-      appointments = await db.all(`
+      appointments = await db.query(`
         SELECT 
           a.id,
           a.client_name,
@@ -85,7 +85,7 @@ router.post('/',
     } = req.body;
 
     try {
-      const result = await db.run(
+      const result = await db.query(
         `INSERT INTO appointments (
           client_name, phone, dni, service_type, manicurist_id, 
           is_reserved, duration, date, time, status, comment
@@ -149,7 +149,7 @@ router.put('/:id',
       }
       
       values.push(id);
-      await db.run(`UPDATE appointments SET ${fields.join(', ')} WHERE id = ?`, values);
+      await db.query(`UPDATE appointments SET ${fields.join(', ')} WHERE id = ?`, values);
       
       res.json({ message: 'Turno actualizado' });
     } catch (error) {
@@ -164,7 +164,7 @@ router.delete('/:id', requireRole('secretaria'), async (req, res) => {
   const { id } = req.params;
 
   try {
-    await db.run('DELETE FROM appointments WHERE id = ?', [id]);
+    await db.query('DELETE FROM appointments WHERE id = ?', [id]);
     res.json({ message: 'Turno eliminado' });
   } catch (error) {
     res.status(500).json({ error: 'Error al eliminar turno' });
@@ -176,7 +176,7 @@ router.get('/manicuristas', requireRole('secretaria'), async (req, res) => {
   const db = getDb();
   
   try {
-    const manicuristas = await db.all('SELECT id, full_name FROM users WHERE role = "manicurista"');
+    const manicuristas = await db.query('SELECT id, full_name FROM users WHERE role = "manicurista"');
     res.json(manicuristas);
   } catch (error) {
     res.status(500).json({ error: 'Error al obtener manicuristas' });
