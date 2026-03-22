@@ -14,11 +14,11 @@ router.get('/', async (req, res) => {
   const user = req.user;
 
   try {
-    let appointments;
+    let result;
     
     if (user.role === 'secretaria') {
       // Secretaria ve todos los turnos con datos completos
-      appointments = await db.query(`
+      result = await db.query(`
         SELECT a.*, u.full_name as manicurista_nombre 
         FROM appointments a
         JOIN users u ON a.manicurist_id = u.id
@@ -26,7 +26,7 @@ router.get('/', async (req, res) => {
       `);
     } else {
       // Manicurista solo ve sus turnos y campos limitados
-      appointments = await db.query(`
+      result = await db.query(`
         SELECT 
           a.id,
           a.client_name,
@@ -38,13 +38,15 @@ router.get('/', async (req, res) => {
           u.full_name as manicurista_nombre
         FROM appointments a
         JOIN users u ON a.manicurist_id = u.id
-        WHERE a.manicurist_id = ?
+        WHERE a.manicurist_id = $1
         ORDER BY a.date ASC, a.time ASC
       `, [user.id]);
     }
     
-    res.json(appointments);
+    // Devolver result.rows (el array de datos)
+    res.json(result.rows);
   } catch (error) {
+    console.error('Error al obtener turnos:', error);
     res.status(500).json({ error: 'Error al obtener turnos' });
   }
 });
@@ -89,15 +91,17 @@ router.post('/',
         `INSERT INTO appointments (
           client_name, phone, dni, service_type, manicurist_id, 
           is_reserved, duration, date, time, status, comment
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+        RETURNING id`,
         [
           client_name, phone, dni, service_type, manicurist_id,
           is_reserved ? 1 : 0, duration, date, time, status, comment || null
         ]
       );
       
-      res.status(201).json({ id: result.lastID, message: 'Turno creado' });
+      res.status(201).json({ id: result.rows[0].id, message: 'Turno creado' });
     } catch (error) {
+      console.error('Error al crear turno:', error);
       res.status(500).json({ error: 'Error al crear turno' });
     }
   }
@@ -130,17 +134,19 @@ router.put('/:id',
     try {
       const fields = [];
       const values = [];
+      let paramIndex = 1;
       
       const allowedFields = ['client_name', 'phone', 'dni', 'service_type', 'manicurist_id', 'is_reserved', 'duration', 'date', 'time', 'status', 'comment'];
       
       for (const [key, value] of Object.entries(updates)) {
         if (allowedFields.includes(key)) {
-          fields.push(`${key} = ?`);
+          fields.push(`${key} = $${paramIndex}`);
           if (key === 'is_reserved') {
             values.push(value ? 1 : 0);
           } else {
             values.push(value);
           }
+          paramIndex++;
         }
       }
       
@@ -149,10 +155,11 @@ router.put('/:id',
       }
       
       values.push(id);
-      await db.query(`UPDATE appointments SET ${fields.join(', ')} WHERE id = ?`, values);
+      await db.query(`UPDATE appointments SET ${fields.join(', ')} WHERE id = $${paramIndex}`, values);
       
       res.json({ message: 'Turno actualizado' });
     } catch (error) {
+      console.error('Error al actualizar turno:', error);
       res.status(500).json({ error: 'Error al actualizar turno' });
     }
   }
@@ -164,9 +171,10 @@ router.delete('/:id', requireRole('secretaria'), async (req, res) => {
   const { id } = req.params;
 
   try {
-    await db.query('DELETE FROM appointments WHERE id = ?', [id]);
+    await db.query('DELETE FROM appointments WHERE id = $1', [id]);
     res.json({ message: 'Turno eliminado' });
   } catch (error) {
+    console.error('Error al eliminar turno:', error);
     res.status(500).json({ error: 'Error al eliminar turno' });
   }
 });
@@ -176,9 +184,10 @@ router.get('/manicuristas', requireRole('secretaria'), async (req, res) => {
   const db = getDb();
   
   try {
-    const manicuristas = await db.query('SELECT id, full_name FROM users WHERE role = "manicurista"');
-    res.json(manicuristas);
+    const result = await db.query('SELECT id, full_name FROM users WHERE role = $1 ORDER BY full_name', ['manicurista']);
+    res.json(result.rows);
   } catch (error) {
+    console.error('Error al obtener manicuristas:', error);
     res.status(500).json({ error: 'Error al obtener manicuristas' });
   }
 });

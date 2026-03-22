@@ -44,7 +44,7 @@ function App() {
             <h1 className="text-xl font-bold text-gray-800">Sistema de Turnos</h1>
             <div className="flex items-center gap-4">
               <img 
-        src="./public/kleuren-logo.png" 
+        src="./kleuren-logo.png" 
         alt="Logo" 
         className="h-10 w-auto"
       />

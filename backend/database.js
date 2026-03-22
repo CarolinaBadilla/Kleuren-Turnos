@@ -14,7 +14,9 @@ export async function initializeDatabase() {
     connectionString: databaseUrl,
     ssl: {
       rejectUnauthorized: false
-    }
+    },
+    // Forzar conexión IPv4
+    family: 4
   });
   
   console.log('✅ Conectado a PostgreSQL (Supabase)');
