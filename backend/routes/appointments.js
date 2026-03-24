@@ -17,7 +17,6 @@ router.get('/', async (req, res) => {
     let result;
     
     if (user.role === 'secretaria') {
-      // Secretaria ve todos los turnos con datos completos
       result = await db.query(`
         SELECT a.*, u.full_name as manicurista_nombre 
         FROM appointments a
@@ -25,7 +24,6 @@ router.get('/', async (req, res) => {
         ORDER BY a.date ASC, a.time ASC
       `);
     } else {
-      // Manicurista solo ve sus turnos y campos limitados
       result = await db.query(`
         SELECT 
           a.id,
@@ -43,7 +41,6 @@ router.get('/', async (req, res) => {
       `, [user.id]);
     }
     
-    // Devolver result.rows (el array de datos)
     res.json(result.rows);
   } catch (error) {
     console.error('Error al obtener turnos:', error);
@@ -51,14 +48,14 @@ router.get('/', async (req, res) => {
   }
 });
 
-// Crear turno (solo secretaria)
+// Crear turno (solo secretaria) - CON NUEVOS TIPOS DE SERVICIO
 router.post('/',
   requireRole('secretaria'),
   [
     body('client_name').notEmpty().withMessage('Nombre requerido'),
     body('phone').notEmpty().withMessage('Teléfono requerido'),
     body('dni').notEmpty().withMessage('DNI requerido'),
-    body('service_type').isIn(['esmaltado', 'semipermanente', 'capping', 'pedicura', 'depilacion']),
+    body('service_type').isIn(['Semipermanente', 'Capping', 'Esculpidas', 'Belleza de manos', 'Belleza de pies', 'Pies + semipermanente', 'Cejas', 'Depilación', 'Retiro', 'Feriado', 'No disponible']),
     body('manicurist_id').isInt(),
     body('duration').isInt({ min: 15 }),
     body('date').matches(/^\d{4}-\d{2}-\d{2}$/),
@@ -107,14 +104,14 @@ router.post('/',
   }
 );
 
-// Editar turno (solo secretaria)
+// Editar turno (solo secretaria) - CON NUEVOS TIPOS DE SERVICIO
 router.put('/:id',
   requireRole('secretaria'),
   [
     body('client_name').optional().notEmpty(),
     body('phone').optional().notEmpty(),
     body('dni').optional().notEmpty(),
-    body('service_type').optional().isIn(['esmaltado', 'semipermanente', 'capping', 'pedicura', 'depilacion']),
+    body('service_type').optional().isIn(['Semipermanente', 'Capping', 'Esculpidas', 'Belleza de manos', 'Belleza de pies', 'Pies + semipermanente', 'Cejas', 'Depilación', 'Retiro', 'Feriado', 'No disponible']),
     body('manicurist_id').optional().isInt(),
     body('duration').optional().isInt({ min: 15 }),
     body('date').optional().matches(/^\d{4}-\d{2}-\d{2}$/),
@@ -192,7 +189,7 @@ router.get('/manicuristas', requireRole('secretaria'), async (req, res) => {
   }
 });
 
-// Obtener estadísticas (solo secretaria) - con filtro por mes
+// Obtener estadísticas (solo secretaria) - CORREGIDO PARA POSTGRESQL
 router.get('/estadisticas', requireRole('secretaria'), async (req, res) => {
   const db = getDb();
   
@@ -252,13 +249,13 @@ router.get('/estadisticas', requireRole('secretaria'), async (req, res) => {
       WHERE date BETWEEN $1 AND $2
     `, [fechaInicio, fechaFin]);
     
-    // También obtener el total por mes (para mostrar estadísticas mensuales)
+    // También obtener el total por mes (CORREGIDO PARA POSTGRESQL)
     const totalesPorMes = await db.query(`
       SELECT 
-        strftime('%Y-%m', date) as mes,
+        TO_CHAR(TO_DATE(date, 'YYYY-MM-DD'), 'YYYY-MM') as mes,
         COUNT(*) as total
       FROM appointments
-      GROUP BY strftime('%Y-%m', date)
+      GROUP BY TO_CHAR(TO_DATE(date, 'YYYY-MM-DD'), 'YYYY-MM')
       ORDER BY mes DESC
       LIMIT 12
     `);
@@ -276,7 +273,7 @@ router.get('/estadisticas', requireRole('secretaria'), async (req, res) => {
     });
   } catch (error) {
     console.error('Error al obtener estadísticas:', error);
-    res.status(500).json({ error: 'Error al obtener estadísticas' });
+    res.status(500).json({ error: 'Error al obtener estadísticas', detalle: error.message });
   }
 });
 
