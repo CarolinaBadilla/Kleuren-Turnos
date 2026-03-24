@@ -192,4 +192,61 @@ router.get('/manicuristas', requireRole('secretaria'), async (req, res) => {
   }
 });
 
+// Obtener estadísticas (solo secretaria)
+router.get('/estadisticas', requireRole('secretaria'), async (req, res) => {
+  const db = getDb();
+  
+  try {
+    // Estadísticas por manicurista y tipo de servicio
+    const porManicurista = await db.query(`
+      SELECT 
+        u.full_name as manicurista,
+        a.service_type,
+        COUNT(*) as cantidad
+      FROM appointments a
+      JOIN users u ON a.manicurist_id = u.id
+      WHERE u.role = 'manicurista'
+      GROUP BY u.full_name, a.service_type
+      ORDER BY u.full_name, a.service_type
+    `);
+    
+    // Totales por servicio (todas las manicuristas)
+    const totalesPorServicio = await db.query(`
+      SELECT 
+        service_type,
+        COUNT(*) as total
+      FROM appointments
+      GROUP BY service_type
+      ORDER BY service_type
+    `);
+    
+    // Totales por manicurista (todos los servicios)
+    const totalesPorManicurista = await db.query(`
+      SELECT 
+        u.full_name as manicurista,
+        COUNT(*) as total
+      FROM appointments a
+      JOIN users u ON a.manicurist_id = u.id
+      WHERE u.role = 'manicurista'
+      GROUP BY u.full_name
+      ORDER BY u.full_name
+    `);
+    
+    // Gran total de servicios
+    const granTotal = await db.query(`
+      SELECT COUNT(*) as total FROM appointments
+    `);
+    
+    res.json({
+      porManicurista: porManicurista.rows,
+      totalesPorServicio: totalesPorServicio.rows,
+      totalesPorManicurista: totalesPorManicurista.rows,
+      granTotal: granTotal.rows[0].total
+    });
+  } catch (error) {
+    console.error('Error al obtener estadísticas:', error);
+    res.status(500).json({ error: 'Error al obtener estadísticas' });
+  }
+});
+
 export default router;

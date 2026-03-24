@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import axios from 'axios'
+import Estadisticas from './Estadisticas'
 
 function SecretariaView({ token }) {
   const [turnos, setTurnos] = useState([])
@@ -187,15 +188,20 @@ function SecretariaView({ token }) {
       Tipo de servicio *
     </label>
     <select
-      value={formData.service_type}
-      onChange={(e) => setFormData({...formData, service_type: e.target.value})}
-      className="w-full border rounded p-2 focus:ring-2 focus:ring-pink-500"
-    >
-      <option value="esmaltado">Esmaltado</option>
-      <option value="semipermanente">Semipermanente</option>
-      <option value="capping">Capping</option>
-      <option value="pedicura">Pedicura</option>
-      <option value="depilacion">Depilación</option>
+    value={formData.service_type}
+    onChange={(e) => setFormData({...formData, service_type: e.target.value})}
+    className="w-full border rounded p-2 focus:ring-2 focus:ring-pink-500">
+     <option value="Semipermanente">Semipermanente</option>
+     <option value="Capping">Capping</option>
+     <option value="Esculpidas">Esculpidas</option>
+     <option value="Belleza de manos">Belleza de manos</option>
+     <option value="Belleza de pies">Belleza de pies</option>
+     <option value="Pies + semipermanente">Pies + semipermanente</option>
+     <option value="Cejas">Cejas</option>
+      <option value="Depilación">Depilación</option>
+      <option value="Retiro">Retiro</option>
+      <option value="Feriado">Feriado</option>
+      <option value="No disponible">No disponible</option>
     </select>
   </div>
   
@@ -314,6 +320,25 @@ function SecretariaView({ token }) {
     )}
   </div>
 </form>
+
+return (
+  <div>
+    <h2 className="text-2xl font-bold mb-6">Gestión de Turnos</h2>
+    
+    {/* Formulario de turnos */}
+    <div className="bg-white rounded-lg shadow-md p-6 mb-8">
+      {/* ... formulario ... */}
+    </div>
+    
+    {/* SECCIÓN NUEVA: Estadísticas */}
+    <Estadisticas token={token} />
+    
+    {/* Lista de turnos */}
+    <div className="bg-white rounded-lg shadow-md overflow-hidden">
+      {/* ... tabla de turnos ... */}
+    </div>
+  </div>
+)
       </div>
       
       {/* Lista de turnos */}
