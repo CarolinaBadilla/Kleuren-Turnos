@@ -191,12 +191,90 @@ router.get('/manicuristas', requireRole('secretaria'), async (req, res) => {
 
 // Obtener estadísticas (solo secretaria) - CORREGIDO PARA POSTGRESQL
 router.get('/estadisticas', requireRole('secretaria'), async (req, res) => {
-  console.log('✅ ESTADÍSTICAS LLAMADO');
-  res.json({ 
-    mensaje: 'Endpoint de estadísticas funciona',
-    total: 0,
-    data: []
-  });
+  const db = getDb();
+  
+  // Obtener mes y año de la query (si no se envía, usar mes actual)
+  let { mes, anio } = req.query;
+  
+  const fechaActual = new Date();
+  const mesActual = mes ? parseInt(mes) : fechaActual.getMonth() + 1;
+  const anioActual = anio ? parseInt(anio) : fechaActual.getFullYear();
+  
+  // Formatear fechas para la consulta
+  const fechaInicio = `${anioActual}-${String(mesActual).padStart(2, '0')}-01`;
+  const fechaFin = `${anioActual}-${String(mesActual).padStart(2, '0')}-31`;
+  
+  try {
+    // Estadísticas por manicurista y tipo de servicio (solo del mes)
+    const porManicurista = await db.query(`
+      SELECT 
+        u.full_name as manicurista,
+        a.service_type,
+        COUNT(*) as cantidad
+      FROM appointments a
+      JOIN users u ON a.manicurist_id = u.id
+      WHERE u.role = 'manicurista'
+        AND a.date BETWEEN $1 AND $2
+      GROUP BY u.full_name, a.service_type
+      ORDER BY u.full_name, a.service_type
+    `, [fechaInicio, fechaFin]);
+    
+    // Totales por servicio (todas las manicuristas, solo del mes)
+    const totalesPorServicio = await db.query(`
+      SELECT 
+        service_type,
+        COUNT(*) as total
+      FROM appointments
+      WHERE date BETWEEN $1 AND $2
+      GROUP BY service_type
+      ORDER BY service_type
+    `, [fechaInicio, fechaFin]);
+    
+    // Totales por manicurista (todos los servicios, solo del mes)
+    const totalesPorManicurista = await db.query(`
+      SELECT 
+        u.full_name as manicurista,
+        COUNT(*) as total
+      FROM appointments a
+      JOIN users u ON a.manicurist_id = u.id
+      WHERE u.role = 'manicurista'
+        AND a.date BETWEEN $1 AND $2
+      GROUP BY u.full_name
+      ORDER BY u.full_name
+    `, [fechaInicio, fechaFin]);
+    
+    // Gran total de servicios del mes
+    const granTotal = await db.query(`
+      SELECT COUNT(*) as total FROM appointments
+      WHERE date BETWEEN $1 AND $2
+    `, [fechaInicio, fechaFin]);
+    
+    // También obtener el total por mes (CORREGIDO PARA POSTGRESQL)
+    const totalesPorMes = await db.query(`
+      SELECT 
+        TO_CHAR(TO_DATE(date, 'YYYY-MM-DD'), 'YYYY-MM') as mes,
+        COUNT(*) as total
+      FROM appointments
+      GROUP BY TO_CHAR(TO_DATE(date, 'YYYY-MM-DD'), 'YYYY-MM')
+      ORDER BY mes DESC
+      LIMIT 12
+    `);
+    
+    res.json({
+      mesActual: mesActual,
+      anioActual: anioActual,
+      fechaInicio,
+      fechaFin,
+      porManicurista: porManicurista.rows,
+      totalesPorServicio: totalesPorServicio.rows,
+      totalesPorManicurista: totalesPorManicurista.rows,
+      granTotal: granTotal.rows[0].total,
+      totalesPorMes: totalesPorMes.rows
+    });
+  } catch (error) {
+    console.error('Error al obtener estadísticas:', error);
+    res.status(500).json({ error: 'Error al obtener estadísticas', detalle: error.message });
+  }
 });
 
 export default router;
