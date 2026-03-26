@@ -118,13 +118,15 @@ function SecretariaView({ token }) {
   }
 
   const getStatusColor = (status) => {
-    switch(status) {
-      case 'confirmado': return 'bg-green-100 text-green-800'
-      case 'pedido': return 'bg-yellow-100 text-yellow-800'
-      case 'cancelado': return 'bg-red-100 text-red-800'
-      default: return 'bg-gray-100 text-gray-800'
-    }
+  switch(status) {
+    case 'confirmado': return 'bg-green-100 text-green-800'
+    case 'pedido': return 'bg-yellow-100 text-yellow-800'
+    case 'próximo': return 'bg-blue-100 text-blue-800'
+    case 'no disponible': return 'bg-red-100 text-red-800'  // Rojo
+    case 'feriado': return 'bg-orange-100 text-orange-800'
+    default: return 'bg-gray-100 text-gray-800'
   }
+}
 
   if (loading) {
     return <div className="text-center py-8">Cargando...</div>
@@ -276,17 +278,19 @@ function SecretariaView({ token }) {
           
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Estado del turno *
+            Estado del turno *
             </label>
-            <select
-              value={formData.status}
-              onChange={(e) => setFormData({...formData, status: e.target.value})}
-              className="w-full border rounded p-2 focus:ring-2 focus:ring-pink-500"
-            >
-              <option value="pedido">Pedido (esperando confirmación)</option>
-              <option value="confirmado">Confirmado</option>
-              <option value="cancelado">Cancelado</option>
-            </select>
+              <select
+                value={formData.status}
+                onChange={(e) => setFormData({...formData, status: e.target.value})}
+                 className="w-full border rounded p-2 focus:ring-2 focus:ring-pink-500"
+             >
+               <option value="pedido">Pedido (esperando confirmación)</option>
+                <option value="confirmado">Confirmado</option>
+                <option value="próximo">Próximo</option>
+                <option value="no disponible">No disponible</option>
+                <option value="feriado">Feriado</option>
+              </select>
           </div>
           
           <div className="md:col-span-2">
