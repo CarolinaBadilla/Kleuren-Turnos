@@ -60,7 +60,7 @@ router.post('/',
     body('duration').isInt({ min: 15 }),
     body('date').matches(/^\d{4}-\d{2}-\d{2}$/),
     body('time').matches(/^\d{2}:\d{2}$/),
-    body('status').isIn(['confirmado', 'pedido', 'próximo', 'no disponible', 'feriado'])
+    body('status').isIn(['confirmado', 'pedido', 'próximo', 'no disponible', 'feriado', 'reprogramar', 'ya atendido'])
   ],
   async (req, res) => {
     const errors = validationResult(req);
@@ -116,7 +116,7 @@ router.put('/:id',
     body('duration').optional().isInt({ min: 15 }),
     body('date').optional().matches(/^\d{4}-\d{2}-\d{2}$/),
     body('time').optional().matches(/^\d{2}:\d{2}$/),
-    body('status').optional().isIn(['confirmado', 'pedido', 'próximo', 'no disponible', 'feriado'])
+    body('status').optional().isIn(['confirmado', 'pedido', 'próximo', 'no disponible', 'feriado', 'reprogramar', 'ya atendido'])
   ],
   async (req, res) => {
     const errors = validationResult(req);

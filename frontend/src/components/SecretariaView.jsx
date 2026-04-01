@@ -122,8 +122,10 @@ function SecretariaView({ token }) {
     case 'confirmado': return 'bg-green-100 text-green-800'
     case 'pedido': return 'bg-yellow-100 text-yellow-800'
     case 'próximo': return 'bg-blue-100 text-blue-800'
-    case 'no disponible': return 'bg-red-100 text-red-800'  // Rojo
+    case 'no disponible': return 'bg-red-100 text-red-800'  
     case 'feriado': return 'bg-orange-100 text-orange-800'
+    case 'reprogramar': return 'bg-pink-100 text-pink-800'  // Rosa
+    case 'ya atendido': return 'bg-gray-100 text-gray-800'
     default: return 'bg-gray-100 text-gray-800'
   }
 }
@@ -290,6 +292,8 @@ function SecretariaView({ token }) {
                 <option value="próximo">Próximo</option>
                 <option value="no disponible">No disponible</option>
                 <option value="feriado">Feriado</option>
+                <option value="reprogramar">Reprogramar</option>
+                <option value="ya atendido">Ya atendido</option>
               </select>
           </div>
           

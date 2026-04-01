@@ -31,8 +31,10 @@ function ManicuristaView({ token, userId }) {
     case 'confirmado': return 'bg-green-100 text-green-800'
     case 'pedido': return 'bg-yellow-100 text-yellow-800'
     case 'próximo': return 'bg-blue-100 text-blue-800'
-    case 'no disponible': return 'bg-red-100 text-red-800'  // Rojo
+    case 'no disponible': return 'bg-red-100 text-red-800'  
     case 'feriado': return 'bg-orange-100 text-orange-800'
+    case 'reprogramar': return 'bg-pink-100 text-pink-800'  
+    case 'ya atendido': return 'bg-gray-100 text-gray-800'
     default: return 'bg-gray-100 text-gray-800'
   }
 }
@@ -42,6 +44,8 @@ function ManicuristaView({ token, userId }) {
       case 'confirmado': return 'Confirmado'
       case 'pedido': return 'Pedido'
       case 'cancelado': return 'Cancelado'
+      case 'reprogramar': return 'Reprogramar'
+      case 'ya atendido': return 'Ya atendido'
       default: return status
     }
   }
