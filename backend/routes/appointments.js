@@ -189,7 +189,7 @@ router.get('/manicuristas', requireRole('secretaria'), async (req, res) => {
   }
 });
 
-// Obtener estadísticas (solo secretaria) - CORREGIDO PARA POSTGRESQL
+// Obtener estadísticas (solo secretaria) - SOLO turnos con estado "ya atendido"
 router.get('/estadisticas', requireRole('secretaria'), async (req, res) => {
   const db = getDb();
   
@@ -205,7 +205,7 @@ router.get('/estadisticas', requireRole('secretaria'), async (req, res) => {
   const fechaFin = `${anioActual}-${String(mesActual).padStart(2, '0')}-31`;
   
   try {
-    // Estadísticas por manicurista y tipo de servicio (solo del mes)
+    // Estadísticas por manicurista y tipo de servicio (SOLO "ya atendido")
     const porManicurista = await db.query(`
       SELECT 
         u.full_name as manicurista,
@@ -214,23 +214,25 @@ router.get('/estadisticas', requireRole('secretaria'), async (req, res) => {
       FROM appointments a
       JOIN users u ON a.manicurist_id = u.id
       WHERE u.role = 'manicurista'
+        AND a.status = 'ya atendido'
         AND a.date BETWEEN $1 AND $2
       GROUP BY u.full_name, a.service_type
       ORDER BY u.full_name, a.service_type
     `, [fechaInicio, fechaFin]);
     
-    // Totales por servicio (todas las manicuristas, solo del mes)
+    // Totales por servicio (SOLO "ya atendido")
     const totalesPorServicio = await db.query(`
       SELECT 
         service_type,
         COUNT(*) as total
       FROM appointments
-      WHERE date BETWEEN $1 AND $2
+      WHERE status = 'ya atendido'
+        AND date BETWEEN $1 AND $2
       GROUP BY service_type
       ORDER BY service_type
     `, [fechaInicio, fechaFin]);
     
-    // Totales por manicurista (todos los servicios, solo del mes)
+    // Totales por manicurista (SOLO "ya atendido")
     const totalesPorManicurista = await db.query(`
       SELECT 
         u.full_name as manicurista,
@@ -238,23 +240,26 @@ router.get('/estadisticas', requireRole('secretaria'), async (req, res) => {
       FROM appointments a
       JOIN users u ON a.manicurist_id = u.id
       WHERE u.role = 'manicurista'
+        AND a.status = 'ya atendido'
         AND a.date BETWEEN $1 AND $2
       GROUP BY u.full_name
       ORDER BY u.full_name
     `, [fechaInicio, fechaFin]);
     
-    // Gran total de servicios del mes
+    // Gran total de servicios atendidos del mes
     const granTotal = await db.query(`
       SELECT COUNT(*) as total FROM appointments
-      WHERE date BETWEEN $1 AND $2
+      WHERE status = 'ya atendido'
+        AND date BETWEEN $1 AND $2
     `, [fechaInicio, fechaFin]);
     
-    // También obtener el total por mes (CORREGIDO PARA POSTGRESQL)
+    // Totales por mes (SOLO "ya atendido")
     const totalesPorMes = await db.query(`
       SELECT 
         TO_CHAR(TO_DATE(date, 'YYYY-MM-DD'), 'YYYY-MM') as mes,
         COUNT(*) as total
       FROM appointments
+      WHERE status = 'ya atendido'
       GROUP BY TO_CHAR(TO_DATE(date, 'YYYY-MM-DD'), 'YYYY-MM')
       ORDER BY mes DESC
       LIMIT 12
