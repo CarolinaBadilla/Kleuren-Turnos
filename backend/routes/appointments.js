@@ -5,22 +5,19 @@ import { body, validationResult } from 'express-validator';
 
 const router = express.Router();
 
-// Middleware para todos los endpoints de turnos
 router.use(authenticateToken);
 
 // ============================================================
-// FUNCIONES AUXILIARES PARA VALIDACIÓN DE SUPERPOSICIÓN
+// FUNCIONES AUXILIARES
 // ============================================================
 
-// Verifica si una manicurista ya tiene un turno en el mismo horario
+// Función para verificar superposición de turnos (corregida)
 async function verificarSuperposicion(db, manicurist_id, date, time, duration, excludeId = null) {
-  // Calcular hora de inicio y fin del nuevo turno
   const inicio = new Date(`${date}T${time}`);
   const fin = new Date(inicio.getTime() + duration * 60000);
   
-  // Buscar turnos de la misma manicurista en la misma fecha
   let query = `
-    SELECT a.*, u.full_name as manicurista_nombre
+    SELECT a.*
     FROM appointments a
     WHERE a.manicurist_id = $1 
     AND a.date = $2
@@ -28,7 +25,6 @@ async function verificarSuperposicion(db, manicurist_id, date, time, duration, e
   `;
   let params = [manicurist_id, date];
   
-  // Si estamos editando, excluir el turno actual
   if (excludeId) {
     query += ` AND a.id != $3`;
     params.push(excludeId);
@@ -36,24 +32,19 @@ async function verificarSuperposicion(db, manicurist_id, date, time, duration, e
   
   const existing = await db.query(query, params);
   
-  // Verificar cada turno existente
   for (const turno of existing.rows) {
     const turnoInicio = new Date(`${turno.date}T${turno.time}`);
     const turnoFin = new Date(turnoInicio.getTime() + turno.duration * 60000);
     
-    // Hay superposición si los intervalos se cruzan
     if ((inicio < turnoFin && fin > turnoInicio)) {
-      return {
-        conflicto: true,
-        turnoExistente: turno
-      };
+      return { conflicto: true, turnoExistente: turno };
     }
   }
   
   return { conflicto: false };
 }
 
-// Funciones auxiliares para obtener datos actuales de un turno (para edición)
+// Funciones auxiliares para obtener datos actuales
 async function getManicuristId(db, id) {
   const result = await db.query('SELECT manicurist_id FROM appointments WHERE id = $1', [id]);
   return result.rows[0]?.manicurist_id;
@@ -75,10 +66,8 @@ async function getAppointmentDuration(db, id) {
 }
 
 // ============================================================
-// ENDPOINTS
+// Obtener turnos
 // ============================================================
-
-// Obtener turnos (según rol)
 router.get('/', async (req, res) => {
   const db = getDb();
   const user = req.user;
@@ -118,7 +107,9 @@ router.get('/', async (req, res) => {
   }
 });
 
-// Crear turno (solo secretaria) - CON VALIDACIÓN DE SUPERPOSICIÓN
+// ============================================================
+// Crear turno - CON VALIDACIÓN DE SUPERPOSICIÓN
+// ============================================================
 router.post('/',
   requireRole('secretaria'),
   [
@@ -188,7 +179,9 @@ router.post('/',
   }
 );
 
-// Editar turno (solo secretaria) - CON VALIDACIÓN DE SUPERPOSICIÓN
+// ============================================================
+// Editar turno - CON VALIDACIÓN DE SUPERPOSICIÓN
+// ============================================================
 router.put('/:id',
   requireRole('secretaria'),
   [
@@ -213,16 +206,12 @@ router.put('/:id',
     const updates = req.body;
 
     try {
-      // Obtener valores actuales para validar superposición con los nuevos
       const currentManicuristId = updates.manicurist_id || await getManicuristId(db, id);
       const currentDate = updates.date || await getAppointmentDate(db, id);
       const currentTime = updates.time || await getAppointmentTime(db, id);
       const currentDuration = updates.duration || await getAppointmentDuration(db, id);
 
-      // VALIDACIÓN DE SUPERPOSICIÓN (excluyendo el turno actual)
-      const superposicion = await verificarSuperposicion(
-        db, currentManicuristId, currentDate, currentTime, currentDuration, id
-      );
+      const superposicion = await verificarSuperposicion(db, currentManicuristId, currentDate, currentTime, currentDuration, id);
       
       if (superposicion.conflicto) {
         return res.status(409).json({ 
@@ -269,7 +258,9 @@ router.put('/:id',
   }
 );
 
-// Borrar turno (solo secretaria)
+// ============================================================
+// Borrar turno
+// ============================================================
 router.delete('/:id', requireRole('secretaria'), async (req, res) => {
   const db = getDb();
   const { id } = req.params;
@@ -283,7 +274,9 @@ router.delete('/:id', requireRole('secretaria'), async (req, res) => {
   }
 });
 
-// Obtener manicuristas (para selector)
+// ============================================================
+// Obtener manicuristas
+// ============================================================
 router.get('/manicuristas', requireRole('secretaria'), async (req, res) => {
   const db = getDb();
   
@@ -296,7 +289,9 @@ router.get('/manicuristas', requireRole('secretaria'), async (req, res) => {
   }
 });
 
-// Obtener estadísticas (solo secretaria) - SOLO turnos con estado "ya atendido"
+// ============================================================
+// Estadísticas
+// ============================================================
 router.get('/estadisticas', requireRole('secretaria'), async (req, res) => {
   const db = getDb();
   
