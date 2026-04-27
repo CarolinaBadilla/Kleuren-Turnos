@@ -22,7 +22,7 @@ const CustomEvent = ({ event }) => {
       padding: '2px', 
       height: '100%',
       overflow: 'hidden',
-      fontSize: '11px'
+      fontSize: '12px'
     }}>
       <div style={{ fontWeight: 'bold', marginBottom: '2px' }}>
         {event.resource.client_name}

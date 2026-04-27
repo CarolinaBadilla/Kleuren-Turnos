@@ -56,19 +56,48 @@ function SecretariaView({ token }) {
   }, [])
 
   const handleSubmit = async (e) => {
-    e.preventDefault()
-    try {
-      if (editingId) {
-        await api.put(`/appointments/${editingId}`, formData)
-      } else {
-        await api.post('/appointments', formData)
-      }
-      resetForm()
-      cargarTurnos()
-    } catch (error) {
-      console.error('Error al guardar turno:', error)
-      alert('Error al guardar el turno')
+  e.preventDefault()
+  try {
+    if (editingId) {
+      await api.put(`/appointments/${editingId}`, formData)
+      alert('✅ Turno actualizado correctamente')
+    } else {
+      await api.post('/appointments', formData)
+      alert('✅ Turno guardado correctamente')
     }
+    resetForm()
+    cargarTurnos()
+  } catch (error) {
+    console.error('Error al guardar turno:', error)
+    
+    // Verificar si es error de superposición (código 409)
+    if (error.response?.status === 409) {
+      const turnoConflicto = error.response.data?.turnoConflicto
+      let mensaje = '❌ No se puede agendar turno porque ya hay un turno en ese horario'
+      
+      if (turnoConflicto) {
+        mensaje += `\n\nTurno existente:\n📅 Cliente: ${turnoConflicto.client_name}\n⏰ Hora: ${turnoConflicto.time}\n⏱️ Duración: ${turnoConflicto.duration} min`
+      }
+      
+      alert(mensaje)
+    } else if (error.response?.status === 400) {
+      // Error de validación de datos
+      const errores = error.response.data?.errors
+      if (errores && errores.length > 0) {
+        alert(`❌ Error en el formulario:\n${errores.map(e => e.msg).join('\n')}`)
+      } else {
+        alert('❌ Error: Datos inválidos. Verificá que todos los campos estén correctos.')
+      }
+    } else if (error.response?.status === 403) {
+      alert('❌ No tenés permisos para realizar esta acción')
+    } else if (error.response?.status === 401) {
+      alert('❌ Tu sesión expiró. Por favor, iniciá sesión nuevamente.')
+      // Opcional: redirigir al login
+      window.location.href = '/'
+    } else {
+      alert('❌ Error al guardar el turno. Intentá nuevamente.')
+    }
+   }
   }
 
   const handleEdit = (turno) => {
@@ -90,14 +119,22 @@ function SecretariaView({ token }) {
   }
 
   const handleDelete = async (id) => {
-    if (confirm('¿Estás segura de eliminar este turno?')) {
-      try {
-        await api.delete(`/appointments/${id}`)
-        cargarTurnos()
-      } catch (error) {
-        console.error('Error al eliminar turno:', error)
-        alert('Error al eliminar el turno')
+  if (confirm('¿Estás segura de eliminar este turno?')) {
+    try {
+      await api.delete(`/appointments/${id}`)
+      alert('✅ Turno eliminado correctamente')
+      cargarTurnos()
+    } catch (error) {
+      console.error('Error al eliminar turno:', error)
+      
+      if (error.response?.status === 403) {
+        alert('❌ No tenés permisos para eliminar turnos')
+      } else if (error.response?.status === 401) {
+        alert('❌ Tu sesión expiró. Por favor, iniciá sesión nuevamente.')
+      } else {
+        alert('❌ Error al eliminar el turno. Intentá nuevamente.')
       }
+    }
     }
   }
 
