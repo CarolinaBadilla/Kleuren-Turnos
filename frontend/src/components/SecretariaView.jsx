@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import axios from 'axios'
 import Estadisticas from './Estadisticas'
+import CalendarioView from './CalendarioView'
 
 function SecretariaView({ token }) {
   const [turnos, setTurnos] = useState([])
@@ -329,6 +330,12 @@ function SecretariaView({ token }) {
           </div>
         </form>
       </div>
+
+      <CalendarioView 
+        token={token} 
+        turnos={turnos} 
+        onEditTurno={handleEdit} 
+      />
       
       {/* Estadísticas */}
       <Estadisticas token={token} />

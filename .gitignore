@@ -28,3 +28,4 @@ Thumbs.db
 # Build
 frontend/dist/
 frontend/build/
+backend/generar-hash.js

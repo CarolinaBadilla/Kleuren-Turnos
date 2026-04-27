@@ -8,6 +8,76 @@ const router = express.Router();
 // Middleware para todos los endpoints de turnos
 router.use(authenticateToken);
 
+// ============================================================
+// FUNCIONES AUXILIARES PARA VALIDACIÓN DE SUPERPOSICIÓN
+// ============================================================
+
+// Verifica si una manicurista ya tiene un turno en el mismo horario
+async function verificarSuperposicion(db, manicurist_id, date, time, duration, excludeId = null) {
+  // Calcular hora de inicio y fin del nuevo turno
+  const inicio = new Date(`${date}T${time}`);
+  const fin = new Date(inicio.getTime() + duration * 60000);
+  
+  // Buscar turnos de la misma manicurista en la misma fecha
+  let query = `
+    SELECT a.*, u.full_name as manicurista_nombre
+    FROM appointments a
+    WHERE a.manicurist_id = $1 
+    AND a.date = $2
+    AND a.status NOT IN ('cancelado', 'no disponible', 'feriado')
+  `;
+  let params = [manicurist_id, date];
+  
+  // Si estamos editando, excluir el turno actual
+  if (excludeId) {
+    query += ` AND a.id != $3`;
+    params.push(excludeId);
+  }
+  
+  const existing = await db.query(query, params);
+  
+  // Verificar cada turno existente
+  for (const turno of existing.rows) {
+    const turnoInicio = new Date(`${turno.date}T${turno.time}`);
+    const turnoFin = new Date(turnoInicio.getTime() + turno.duration * 60000);
+    
+    // Hay superposición si los intervalos se cruzan
+    if ((inicio < turnoFin && fin > turnoInicio)) {
+      return {
+        conflicto: true,
+        turnoExistente: turno
+      };
+    }
+  }
+  
+  return { conflicto: false };
+}
+
+// Funciones auxiliares para obtener datos actuales de un turno (para edición)
+async function getManicuristId(db, id) {
+  const result = await db.query('SELECT manicurist_id FROM appointments WHERE id = $1', [id]);
+  return result.rows[0]?.manicurist_id;
+}
+
+async function getAppointmentDate(db, id) {
+  const result = await db.query('SELECT date FROM appointments WHERE id = $1', [id]);
+  return result.rows[0]?.date;
+}
+
+async function getAppointmentTime(db, id) {
+  const result = await db.query('SELECT time FROM appointments WHERE id = $1', [id]);
+  return result.rows[0]?.time;
+}
+
+async function getAppointmentDuration(db, id) {
+  const result = await db.query('SELECT duration FROM appointments WHERE id = $1', [id]);
+  return result.rows[0]?.duration;
+}
+
+// ============================================================
+// ENDPOINTS
+// ============================================================
+
 // Obtener turnos (según rol)
 router.get('/', async (req, res) => {
   const db = getDb();
@@ -48,7 +118,7 @@ router.get('/', async (req, res) => {
   }
 });
 
-// Crear turno (solo secretaria) - CON NUEVOS TIPOS DE SERVICIO
+// Crear turno (solo secretaria) - CON VALIDACIÓN DE SUPERPOSICIÓN
 router.post('/',
   requireRole('secretaria'),
   [
@@ -84,6 +154,20 @@ router.post('/',
     } = req.body;
 
     try {
+      // VALIDACIÓN DE SUPERPOSICIÓN
+      const superposicion = await verificarSuperposicion(db, manicurist_id, date, time, duration);
+      if (superposicion.conflicto) {
+        return res.status(409).json({ 
+          error: 'La manicurista ya tiene un turno en ese horario',
+          turnoConflicto: {
+            id: superposicion.turnoExistente.id,
+            client_name: superposicion.turnoExistente.client_name,
+            time: superposicion.turnoExistente.time,
+            duration: superposicion.turnoExistente.duration
+          }
+        });
+      }
+
       const result = await db.query(
         `INSERT INTO appointments (
           client_name, phone, dni, service_type, manicurist_id, 
@@ -104,7 +188,7 @@ router.post('/',
   }
 );
 
-// Editar turno (solo secretaria) - CON NUEVOS TIPOS DE SERVICIO
+// Editar turno (solo secretaria) - CON VALIDACIÓN DE SUPERPOSICIÓN
 router.put('/:id',
   requireRole('secretaria'),
   [
@@ -129,6 +213,29 @@ router.put('/:id',
     const updates = req.body;
 
     try {
+      // Obtener valores actuales para validar superposición con los nuevos
+      const currentManicuristId = updates.manicurist_id || await getManicuristId(db, id);
+      const currentDate = updates.date || await getAppointmentDate(db, id);
+      const currentTime = updates.time || await getAppointmentTime(db, id);
+      const currentDuration = updates.duration || await getAppointmentDuration(db, id);
+
+      // VALIDACIÓN DE SUPERPOSICIÓN (excluyendo el turno actual)
+      const superposicion = await verificarSuperposicion(
+        db, currentManicuristId, currentDate, currentTime, currentDuration, id
+      );
+      
+      if (superposicion.conflicto) {
+        return res.status(409).json({ 
+          error: 'La manicurista ya tiene un turno en ese horario',
+          turnoConflicto: {
+            id: superposicion.turnoExistente.id,
+            client_name: superposicion.turnoExistente.client_name,
+            time: superposicion.turnoExistente.time,
+            duration: superposicion.turnoExistente.duration
+          }
+        });
+      }
+
       const fields = [];
       const values = [];
       let paramIndex = 1;
@@ -193,19 +300,16 @@ router.get('/manicuristas', requireRole('secretaria'), async (req, res) => {
 router.get('/estadisticas', requireRole('secretaria'), async (req, res) => {
   const db = getDb();
   
-  // Obtener mes y año de la query (si no se envía, usar mes actual)
   let { mes, anio } = req.query;
   
   const fechaActual = new Date();
   const mesActual = mes ? parseInt(mes) : fechaActual.getMonth() + 1;
   const anioActual = anio ? parseInt(anio) : fechaActual.getFullYear();
   
-  // Formatear fechas para la consulta
   const fechaInicio = `${anioActual}-${String(mesActual).padStart(2, '0')}-01`;
   const fechaFin = `${anioActual}-${String(mesActual).padStart(2, '0')}-31`;
   
   try {
-    // Estadísticas por manicurista y tipo de servicio (SOLO "ya atendido")
     const porManicurista = await db.query(`
       SELECT 
         u.full_name as manicurista,
@@ -220,7 +324,6 @@ router.get('/estadisticas', requireRole('secretaria'), async (req, res) => {
       ORDER BY u.full_name, a.service_type
     `, [fechaInicio, fechaFin]);
     
-    // Totales por servicio (SOLO "ya atendido")
     const totalesPorServicio = await db.query(`
       SELECT 
         service_type,
@@ -232,7 +335,6 @@ router.get('/estadisticas', requireRole('secretaria'), async (req, res) => {
       ORDER BY service_type
     `, [fechaInicio, fechaFin]);
     
-    // Totales por manicurista (SOLO "ya atendido")
     const totalesPorManicurista = await db.query(`
       SELECT 
         u.full_name as manicurista,
@@ -246,14 +348,12 @@ router.get('/estadisticas', requireRole('secretaria'), async (req, res) => {
       ORDER BY u.full_name
     `, [fechaInicio, fechaFin]);
     
-    // Gran total de servicios atendidos del mes
     const granTotal = await db.query(`
       SELECT COUNT(*) as total FROM appointments
       WHERE status = 'ya atendido'
         AND date BETWEEN $1 AND $2
     `, [fechaInicio, fechaFin]);
     
-    // Totales por mes (SOLO "ya atendido")
     const totalesPorMes = await db.query(`
       SELECT 
         TO_CHAR(TO_DATE(date, 'YYYY-MM-DD'), 'YYYY-MM') as mes,
