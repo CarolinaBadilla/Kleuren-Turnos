@@ -27,10 +27,10 @@ const CustomEvent = ({ event }) => {
       <div style={{ fontWeight: 'bold', marginBottom: '2px' }}>
         {event.resource.client_name}
       </div>
-      <div style={{ fontSize: '9px', opacity: 0.9 }}>
+      <div style={{ fontSize: '11px', opacity: 0.9 }}>
         💅 {event.resource.service_type}
       </div>
-      <div style={{ fontSize: '9px', opacity: 0.8 }}>
+      <div style={{ fontSize: '10px', opacity: 0.8 }}>
         👩 {event.resource.manicurista_nombre || event.resource.manicurista}
       </div>
     </div>
