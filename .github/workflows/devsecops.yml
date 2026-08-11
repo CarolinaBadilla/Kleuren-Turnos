@@ -42,10 +42,11 @@ jobs:
       - name: Checkout Código
         uses: actions/checkout@v4
 
-      - name: Perform Semgrep Scan
-        run: |
-          python3 -m pip install semgrep
-          semgrep scan --config auto --sarif --output semgrep.sarif
+      - name: Install Semgrep
+        run: pip install semgrep
+
+      - name: Run Semgrep SAST Scan
+        run: semgrep scan --config auto --sarif --output semgrep.sarif
 
       - name: Upload Semgrep SARIF Results
         uses: github/codeql-action/upload-sarif@v4
