@@ -5,9 +5,8 @@ on:
     branches: [ "main" ]
   pull_request:
     branches: [ "main" ]
-  workflow_dispatch: # Permite ejecución manual desde la interfaz de GitHub
+  workflow_dispatch:
 
-# Garantizar principio de mínimos privilegios a nivel global
 permissions:
   contents: read
   security-events: write
@@ -43,14 +42,13 @@ jobs:
       - name: Checkout Código
         uses: actions/checkout@v4
 
-      - name: Semgrep SAST Scan
-        uses: returntocorp/semgrep-action@v1
-        with:
-          config: p/ci
-          generateSarif: "1"
+      - name: Perform Semgrep Scan
+        run: |
+          python3 -m pip install semgrep
+          semgrep scan --config auto --sarif --output semgrep.sarif
 
       - name: Upload Semgrep SARIF Results
-        uses: github/codeql-action/upload-sarif@v3
+        uses: github/codeql-action/upload-sarif@v4
         if: always()
         with:
           sarif_file: semgrep.sarif
@@ -80,7 +78,7 @@ jobs:
           severity: 'CRITICAL,HIGH'
 
       - name: Upload Trivy SARIF Results
-        uses: github/codeql-action/upload-sarif@v3
+        uses: github/codeql-action/upload-sarif@v4
         if: always()
         with:
           sarif_file: 'trivy-results.sarif'
@@ -94,7 +92,6 @@ jobs:
     timeout-minutes: 10
     needs: container-security
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-    environment: production # Módulo de entorno con aprobación opcional
     steps:
       - name: Deploy via SSH
         uses: appleboy/ssh-action@v1.0.3
@@ -109,4 +106,4 @@ jobs:
             git pull origin main
             cd ~/kleuren
             docker compose up -d --build --remove-orphans
-            docker image prune -f # Limpieza de capas huérfanas en producción
+            docker image prune -f
