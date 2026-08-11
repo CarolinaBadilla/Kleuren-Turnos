@@ -67,7 +67,7 @@ jobs:
 
       - name: Build Local Image for Scanning
         run: |
-          docker build -t kleuren-web:test -f codigo_fuente/Dockerfile codigo_fuente/
+          docker build -t kleuren-web:test -f Dockerfile .
 
       - name: Install Trivy CLI
         run: |
