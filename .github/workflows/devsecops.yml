@@ -1,0 +1,112 @@
+name: DevSecOps Enterprise Pipeline - Kleuren
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+  workflow_dispatch: # Permite ejecución manual desde la interfaz de GitHub
+
+# Garantizar principio de mínimos privilegios a nivel global
+permissions:
+  contents: read
+  security-events: write
+
+jobs:
+  # -------------------------------------------------------------------
+  # 1. DETECCIÓN DE SECRETOS (Gitleaks)
+  # -------------------------------------------------------------------
+  secrets-scan:
+    name: Secret Leak Detection
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout Código
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Executing Gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # -------------------------------------------------------------------
+  # 2. ANÁLISIS ESTÁTICO DE CÓDIGO FUENTE (SAST - Semgrep)
+  # -------------------------------------------------------------------
+  sast-scan:
+    name: Static Application Security Testing (SAST)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    needs: secrets-scan
+    steps:
+      - name: Checkout Código
+        uses: actions/checkout@v4
+
+      - name: Semgrep SAST Scan
+        uses: returntocorp/semgrep-action@v1
+        with:
+          config: p/ci
+          generateSarif: "1"
+
+      - name: Upload Semgrep SARIF Results
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: semgrep.sarif
+
+  # -------------------------------------------------------------------
+  # 3. ESCANEO DE CONTENEDORES Y VULNERABILIDADES (Trivy)
+  # -------------------------------------------------------------------
+  container-security:
+    name: Container & Dependency Vulnerability Scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    needs: sast-scan
+    steps:
+      - name: Checkout Código
+        uses: actions/checkout@v4
+
+      - name: Build Local Image for Scanning
+        run: |
+          docker build -t kleuren-web:test -f codigo_fuente/Dockerfile codigo_fuente/
+
+      - name: Run Trivy Scanner on Local Image
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: 'kleuren-web:test'
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+          severity: 'CRITICAL,HIGH'
+
+      - name: Upload Trivy SARIF Results
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: 'trivy-results.sarif'
+
+  # -------------------------------------------------------------------
+  # 4. DESPLIEGUE SEGURO (CD - Continuous Deployment)
+  # -------------------------------------------------------------------
+  deploy-vps:
+    name: Production Deployment to VPS
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    needs: container-security
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    environment: production # Módulo de entorno con aprobación opcional
+    steps:
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USERNAME }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          port: 22
+          script_stop_on_error: true
+          script: |
+            cd ~/kleuren/codigo_fuente
+            git pull origin main
+            cd ~/kleuren
+            docker compose up -d --build --remove-orphans
+            docker image prune -f # Limpieza de capas huérfanas en producción
