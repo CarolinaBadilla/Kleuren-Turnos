@@ -108,6 +108,5 @@ jobs:
           script: |
             cd ~/kleuren/codigo_fuente
             git pull origin main
-            cd ~/kleuren
             docker compose up -d --build --remove-orphans
             docker image prune -f
