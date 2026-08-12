@@ -1,39 +1,35 @@
-# ===================================================
-# ETAPA 1: Compilar el Frontend de React con Vite
-# ===================================================
-FROM node:20-alpine AS frontend-builder
-WORKDIR /app/frontend
+# -------------------------------------------------------------------
+# ETAPA 1: Build de dependencias
+# -------------------------------------------------------------------
+FROM node:20-alpine AS builder
 
-# Copiar paquetes e instalar dependencias del frontend
-COPY frontend/package*.json ./
-RUN npm install
+WORKDIR /app
 
-# Copiar el código del frontend y compilar
-COPY frontend/ ./
-RUN npm run build
+# Copiar archivos de dependencias
+COPY package*.json ./
 
-# ===================================================
-# ETAPA 2: Preparar el Backend de Node.js y Ejecutar
-# ===================================================
-FROM node:20-alpine
-WORKDIR /app/backend
+# Instalación de dependencias limpias de producción
+RUN npm ci --only=production
 
-# Copiar paquetes e instalar dependencias de producción del backend
-COPY backend/package*.json ./
-RUN npm install --only=production
+# Copiar código fuente
+COPY . .
 
-# Copiar el código fuente del backend
-COPY backend/ ./
+# -------------------------------------------------------------------
+# ETAPA 2: Runtime de producción (Hardened & Non-Root)
+# -------------------------------------------------------------------
+FROM node:20-alpine AS runner
 
-# Copiar el frontend compilado (dist) a la carpeta 'public' del backend
-COPY --from=frontend-builder /app/frontend/dist ./public
+WORKDIR /app
 
-# Exponer el puerto de la aplicación
+ENV NODE_ENV=production
+ENV PORT=3000
+
+# Copiar desde la etapa de compilación
+COPY --from=builder /app ./
+
+# HARDENING: Ejecutar la app con el usuario del sistema 'node' (Non-Root)
+USER node
+
 EXPOSE 3000
 
-# Variables de entorno por defecto
-ENV PORT=3000
-ENV NODE_ENV=production
-
-# Comando para iniciar el servidor
 CMD ["node", "server.js"]
