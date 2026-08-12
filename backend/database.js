@@ -1,6 +1,8 @@
 import pkg from 'pg';
 const { Pool } = pkg;
 
+const isProductionDocker = process.env.DATABASE_URL?.includes('kleuren-db');
+
 let pool;
 
 export async function initializeDatabase() {
@@ -12,9 +14,7 @@ export async function initializeDatabase() {
   
   pool = new Pool({
     connectionString: databaseUrl,
-    ssl: {
-      rejectUnauthorized: false
-    },
+    ssl: isProductionDocker ? false : { rejectUnauthorized: false },
     // Forzar conexión IPv4
     family: 4
   });
