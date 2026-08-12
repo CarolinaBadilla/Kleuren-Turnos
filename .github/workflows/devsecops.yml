@@ -53,7 +53,6 @@ jobs:
         if: always()
         with:
           sarif_file: semgrep.sarif
-
   # -------------------------------------------------------------------
   # 3. ESCANEO DE CONTENEDORES Y VULNERABILIDADES (Trivy)
   # -------------------------------------------------------------------
@@ -68,7 +67,7 @@ jobs:
 
       - name: Build Local Image for Scanning
         run: |
-          docker build -t kleuren-web:test -f Dockerfile .
+          docker build -t kleuren-web:test -f backend/Dockerfile backend/
 
       - name: Install Trivy CLI
         run: |
