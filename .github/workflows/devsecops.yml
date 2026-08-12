@@ -53,6 +53,7 @@ jobs:
         if: always()
         with:
           sarif_file: semgrep.sarif
+
   # -------------------------------------------------------------------
   # 3. ESCANEO DE CONTENEDORES Y VULNERABILIDADES (Trivy)
   # -------------------------------------------------------------------
@@ -69,16 +70,6 @@ jobs:
         run: |
           docker build -t kleuren-web:test -f Dockerfile .
 
-<<<<<<< HEAD
-      - name: Run Trivy Scanner on Local Image
-        uses: aquasecurity/trivy-action@master
-        with:
-          image-ref: 'kleuren-web:test'
-          format: 'sarif'
-          output: 'trivy-results.sarif'
-          severity: 'CRITICAL,HIGH'
-          exit-code: '0' # Permite que genere el archivo SARIF y reporte las vulnerabilidades en GitHub Security
-=======
       - name: Install Trivy CLI
         run: |
           sudo apt-get install wget apt-transport-https gnupg lsb-release -y
@@ -90,7 +81,6 @@ jobs:
       - name: Run Trivy Scan
         run: |
           trivy image --format sarif --output trivy-results.sarif --severity CRITICAL,HIGH kleuren-web:test
->>>>>>> 5db28aed9b61c047a38bd2fa24463a57df1aee28
 
       - name: Upload Trivy SARIF Results
         uses: github/codeql-action/upload-sarif@v4
