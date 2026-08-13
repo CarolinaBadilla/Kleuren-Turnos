@@ -53,6 +53,7 @@ jobs:
         if: always()
         with:
           sarif_file: semgrep.sarif
+
   # -------------------------------------------------------------------
   # 3. ESCANEO DE CONTENEDORES Y VULNERABILIDADES (Trivy)
   # -------------------------------------------------------------------
@@ -67,22 +68,22 @@ jobs:
 
       - name: Build Local Image for Scanning
         run: |
-          docker build -t kleuren-web:test -f backend/Dockerfile backend/
+          docker build -t kleuren-web:test -f backend/Dockerfile .
 
       - name: Install Trivy CLI
         run: |
-          sudo apt-get install wget apt-transport-https gnupg lsb-release -y
+          sudo apt-get update && sudo apt-get install -y wget apt-transport-https gnupg lsb-release
           wget -qO - https://aquasecurity.github.io/trivy-repo/deb/public.key | gpg --dearmor | sudo tee /usr/share/keyrings/trivy.gpg > /dev/null
-          echo "deb [signed-by=/usr/share/keyrings/trivy.gpg] https://aquasecurity.github.io/trivy-repo/deb $(lsb_release -sc) main" | sudo tee -a /etc/apt/sources.list.d/trivy.list
+          echo "deb [signed-by=/usr/share/keyrings/trivy.gpg] https://aquasecurity.github.io/trivy-repo/deb $(lsb_release -sc) main" | sudo tee /etc/apt/sources.list.d/trivy.list
           sudo apt-get update
           sudo apt-get install trivy -y
 
       - name: Run Trivy Scan
         run: |
-          trivy image --format sarif --output trivy-results.sarif --severity CRITICAL,HIGH kleuren-web:test
+          trivy image --format sarif --output trivy-results.sarif --severity CRITICAL,HIGH --exit-code 0 kleuren-web:test
 
       - name: Upload Trivy SARIF Results
-        uses: github/codeql-action/upload-sarif@v4
+        uses: github/codeql-action/upload-sarif@v3
         if: always()
         with:
           sarif_file: 'trivy-results.sarif'

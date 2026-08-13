@@ -75,39 +75,42 @@ app.use(express.json());
 await initializeDatabase();
 
 // -------------------------------------------------------------------
-// APLICAR RATE LIMITING A LAS RUTAS
+// RATE LIMITING & RUTAS DE LA API
 // -------------------------------------------------------------------
-// Rutas de la aplicación
+// Aplicar limitador general a la API
+app.use('/api/', limitadorGeneral);
+
+// Proteger login con limitador estricto
+app.use('/api/auth/login', limitadorAutenticacion);
+
+// Rutas API
 app.use('/api/auth', authRoutes);
 app.use('/api/appointments', appointmentsRoutes);
 
-// Proteger la ruta de autenticación con el limitador estricto
-app.use('/api/auth/login', limitadorAutenticacion);
-
-// Proteger todas las rutas globales de la API con el limitador general
-app.use('/api/', limitadorGeneral)
+// -------------------------------------------------------------------
+// CABECERA CSP (Permitir scripts estáticos)
+// -------------------------------------------------------------------
+app.use((req, res, next) => {
+  res.setHeader(
+    "Content-Security-Policy",
+    "default-src 'self'; script-src 'self' 'unsafe-inline' https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com;"
+  );
+  next();
+});
 
 // -------------------------------------------------------------------
-// SERVIR ARCHIVOS ESTÁTICOS Y SPA ROUTER
+// SERVIR ARCHIVOS ESTÁTICOS Y CAPTURA SPA (Vite React Router)
 // -------------------------------------------------------------------
 app.use(express.static(path.join(__dirname, 'public')));
 
 app.get('*', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'index.html'));
-});
-
-// -------------------------------------------------------------------
-// CAPTURA SPA (React Router fallback)
-// -------------------------------------------------------------------
-// Si la petición NO es de la API y NO es un archivo estático, devuelve index.html
-app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'), (err) => {
     if (err) {
-      res.status(404).send('Error 404: No se encontraron los archivos del Frontend en la carpeta public.');
+      res.status(500).send('Error: No se encontró el index.html en public.');
     }
   });
 });
 
 app.listen(PORT, () => {
-  console.log(`🚀 Servidor corriendo en http://localhost:${PORT}`);
+  console.log(`🚀 Servidor corriendo en el puerto ${PORT}`);
 });

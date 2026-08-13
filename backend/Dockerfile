@@ -1,18 +1,14 @@
 # -------------------------------------------------------------------
-# ETAPA 1: Compilar el Frontend (React / Vite)
+# ETAPA 1: Compilar el Frontend (Vite + React)
 # -------------------------------------------------------------------
 FROM node:20-alpine AS frontend-builder
 
 WORKDIR /app/frontend
 
-# Copiar paquetes del frontend e instalar dependencias
 COPY frontend/package*.json ./
 RUN npm ci
 
-# Copiar src/, index.html, public/ y todo el código del frontend
 COPY frontend/ ./
-
-# Generar la carpeta dist/ compilada
 RUN npm run build
 
 # -------------------------------------------------------------------
@@ -27,12 +23,11 @@ RUN npm ci --omit=dev
 
 COPY backend/ ./
 
-# Copiar el resultado compilado del frontend a la carpeta public del backend
-# (Nota: Si tu proyecto usa Vite la salida es 'dist'. Si usas Create React App es 'build')
+# Copiar el resultado de Vite (dist) a la carpeta public del backend
 COPY --from=frontend-builder /app/frontend/dist ./public
 
 # -------------------------------------------------------------------
-# ETAPA 3: Imagen Final de Producción (Hardened & Non-Root)
+# ETAPA 3: Runtime de producción (Hardened & Non-Root)
 # -------------------------------------------------------------------
 FROM node:20-alpine AS runner
 
@@ -41,10 +36,10 @@ WORKDIR /app
 ENV NODE_ENV=production
 ENV PORT=3000
 
-# Copiar la aplicación backend lista con los estáticos ya integrados
+# Copiar la aplicación backend lista con los estáticos en public
 COPY --from=backend-builder /app/backend ./
 
-# HARDENING: Ejecutar la app con el usuario 'node' (Non-Root)
+# HARDENING: Ejecutar la app con el usuario 'node'
 USER node
 
 EXPOSE 3000
