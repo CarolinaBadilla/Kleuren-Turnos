@@ -77,15 +77,15 @@ await initializeDatabase();
 // -------------------------------------------------------------------
 // APLICAR RATE LIMITING A LAS RUTAS
 // -------------------------------------------------------------------
+// Rutas de la aplicación
+app.use('/api/auth', authRoutes);
+app.use('/api/appointments', appointmentsRoutes);
+
 // Proteger la ruta de autenticación con el limitador estricto
 app.use('/api/auth/login', limitadorAutenticacion);
 
 // Proteger todas las rutas globales de la API con el limitador general
-app.use('/api/', limitadorGeneral);
-
-// Rutas de la aplicación
-app.use('/api/auth', authRoutes);
-app.use('/api/appointments', appointmentsRoutes);
+app.use('/api/', limitadorGeneral)
 
 // -------------------------------------------------------------------
 // SERVIR ARCHIVOS ESTÁTICOS Y SPA ROUTER
@@ -94,6 +94,18 @@ app.use(express.static(path.join(__dirname, 'public')));
 
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+
+// -------------------------------------------------------------------
+// CAPTURA SPA (React Router fallback)
+// -------------------------------------------------------------------
+// Si la petición NO es de la API y NO es un archivo estático, devuelve index.html
+app.get('*', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'index.html'), (err) => {
+    if (err) {
+      res.status(404).send('Error 404: No se encontraron los archivos del Frontend en la carpeta public.');
+    }
+  });
 });
 
 app.listen(PORT, () => {
