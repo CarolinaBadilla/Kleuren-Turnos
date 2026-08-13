@@ -95,8 +95,9 @@ await initializeDatabase();
 // -------------------------------------------------------------------
 // 5. RUTAS Y RATE LIMITING DE LA API
 // -------------------------------------------------------------------
-app.use('/api/', limitadorGeneral);
 app.use('/api/auth/login', limitadorAutenticacion);
+
+app.use('/api/', limitadorGeneral);
 
 app.use('/api/auth', authRoutes);
 app.use('/api/appointments', appointmentsRoutes);
