@@ -2,6 +2,7 @@ import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
 import path from 'path';
+import fs from 'fs';
 import { fileURLToPath } from 'url';
 import { rateLimit } from 'express-rate-limit';
 import { RedisStore } from 'rate-limit-redis';
@@ -18,7 +19,24 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 // -------------------------------------------------------------------
-// CONEXIÓN CON REDIS
+// 1. CONFIGURACIÓN DE CABECERAS CSP Y SEGURIDAD (AL INICIO)
+// -------------------------------------------------------------------
+app.use((req, res, next) => {
+  res.setHeader(
+    "Content-Security-Policy",
+    "default-src 'self'; " +
+    "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://static.cloudflareinsights.com; " +
+    "script-src-elem 'self' 'unsafe-inline' https://static.cloudflareinsights.com; " +
+    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; " +
+    "font-src 'self' https://fonts.gstatic.com; " +
+    "imgSrc 'self' data: blob: https:; " +
+    "connect-src 'self' https://static.cloudflareinsights.com wss: https:;"
+  );
+  next();
+});
+
+// -------------------------------------------------------------------
+// 2. CONEXIÓN CON REDIS
 // -------------------------------------------------------------------
 const redisClient = new Redis(process.env.REDIS_URL || 'redis://localhost:6379');
 
@@ -26,9 +44,8 @@ redisClient.on('connect', () => console.log('✅ Conectado a Redis exitosamente'
 redisClient.on('error', (err) => console.error('❌ Error de conexión con Redis:', err));
 
 // -------------------------------------------------------------------
-// MIDDLEWARES DE RATE LIMITING (Fase 2)
+// 3. MIDDLEWARES DE RATE LIMITING (Fase 2)
 // -------------------------------------------------------------------
-// 1. Limitador general para todas las peticiones API (100 req / 15 min)
 const limitadorGeneral = rateLimit({
   windowMs: 15 * 60 * 1000,
   limit: 100,
@@ -42,7 +59,6 @@ const limitadorGeneral = rateLimit({
   }),
 });
 
-// 2. Limitador estricto para inicio de sesión / Auth (5 req / 15 min - Fuerza Bruta)
 const limitadorAutenticacion = rateLimit({
   windowMs: 15 * 60 * 1000,
   limit: 5,
@@ -57,7 +73,7 @@ const limitadorAutenticacion = rateLimit({
 });
 
 // -------------------------------------------------------------------
-// CONFIGURACIÓN DE MIDDLEWARES Y CORS
+// 4. MIDDLEWARES GENERALES Y CORS
 // -------------------------------------------------------------------
 app.use(cors({
   origin: [
@@ -75,42 +91,37 @@ app.use(express.json());
 await initializeDatabase();
 
 // -------------------------------------------------------------------
-// RATE LIMITING & RUTAS DE LA API
+// 5. RUTAS Y RATE LIMITING DE LA API
 // -------------------------------------------------------------------
-// Aplicar limitador general a la API
 app.use('/api/', limitadorGeneral);
-
-// Proteger login con limitador estricto
 app.use('/api/auth/login', limitadorAutenticacion);
 
-// Rutas API
 app.use('/api/auth', authRoutes);
 app.use('/api/appointments', appointmentsRoutes);
 
 // -------------------------------------------------------------------
-// CABECERA CSP (Permitir scripts estáticos)
+// 6. SERVIR ARCHIVOS ESTÁTICOS Y CAPTURA SPA (Vite / React Router)
 // -------------------------------------------------------------------
-app.use((req, res, next) => {
-  res.setHeader(
-    "Content-Security-Policy",
-    "default-src 'self'; script-src 'self' 'unsafe-inline' https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com;"
-  );
-  next();
-});
+const publicPath = path.join(__dirname, 'public');
 
-// -------------------------------------------------------------------
-// SERVIR ARCHIVOS ESTÁTICOS Y CAPTURA SPA (Vite React Router)
-// -------------------------------------------------------------------
-app.use(express.static(path.join(__dirname, 'public')));
+// Servir la carpeta de estáticos compilada
+app.use(express.static(publicPath));
 
+// Fallback SPA
 app.get('*', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'index.html'), (err) => {
-    if (err) {
-      res.status(500).send('Error: No se encontró el index.html en public.');
-    }
-  });
+  const indexPath = path.join(publicPath, 'index.html');
+  if (fs.existsSync(indexPath)) {
+    res.sendFile(indexPath);
+  } else {
+    res.status(404).send(`
+      <h2>Error 404: No se encontró la interfaz del Frontend</h2>
+      <p>Express buscó el archivo en: <code>${indexPath}</code></p>
+      <p>Verifica que la compilación de Vite haya generado los archivos en public/.</p>
+    `);
+  }
 });
 
 app.listen(PORT, () => {
   console.log(`🚀 Servidor corriendo en el puerto ${PORT}`);
+  console.log(`📂 Carpeta pública mapeada en: ${publicPath}`);
 });
